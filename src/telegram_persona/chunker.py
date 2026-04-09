@@ -41,6 +41,7 @@ class ConversationChunk:
     chat_name: str
     chat_type: str  # raw Telegram type
     chat_category: str  # "personal" | "group" | "channel"
+    chat_id: int
     messages: list[Message]
     reply_context: dict[int, Message] = field(default_factory=dict)
 
@@ -288,6 +289,7 @@ def chunk_chat(chat: Chat, user_id: str) -> list[ConversationChunk]:
                 chat_name=chat.name,
                 chat_type=chat.chat_type,
                 chat_category=category,
+                chat_id=chat.chat_id,
                 messages=sub,
                 reply_context=reply_context,
             ))

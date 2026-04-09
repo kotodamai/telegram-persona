@@ -140,6 +140,7 @@ class Analyzer:
                 result["_chat_name"] = chunk.chat_name
                 result["_chat_type"] = chunk.chat_type
                 result["_chat_category"] = chunk.chat_category
+                result["_chat_id"] = chunk.chat_id
                 self._save_cache(key, result)
                 return chunk, result
             except Exception as e:
@@ -165,14 +166,15 @@ class Analyzer:
     # ============================================================
 
     async def _summarize_chat(
-        self, chat_name: str, chat_category: str, annotations: list[dict],
-        semaphore: asyncio.Semaphore,
+        self, chat_name: str, chat_category: str, chat_id: int,
+        annotations: list[dict], semaphore: asyncio.Semaphore,
     ) -> dict | None:
         annotations_text = "\n".join(json.dumps(a, ensure_ascii=False) for a in annotations)
         input_hash = hashlib.sha256(annotations_text.encode()).hexdigest()[:12]
         key = _cache_key(input_hash, self.config.tier1_model, self.prompt_ver, self.source_hash, "t1.5")
         cached = self._load_cache(key)
         if cached:
+            cached["_chat_id"] = chat_id
             return cached
 
         prompt = TIER1_5_SUMMARY.format(
@@ -188,6 +190,7 @@ class Analyzer:
                     self.config.tier1_model, TIER1_5_SYSTEM, prompt
                 )
                 self._save_cache(key, result)
+                result["_chat_id"] = chat_id
                 return result
             except Exception as e:
                 print(f"Error summarizing {chat_name}: {e}", file=sys.stderr)
@@ -204,7 +207,8 @@ class Analyzer:
         tasks = []
         for chat_name, chat_anns in by_chat.items():
             category = chat_anns[0].get("_chat_category", "unknown")
-            tasks.append(self._summarize_chat(chat_name, category, chat_anns, semaphore))
+            chat_id = chat_anns[0].get("_chat_id", 0)
+            tasks.append(self._summarize_chat(chat_name, category, chat_id, chat_anns, semaphore))
 
         summaries = []
         with tqdm(total=len(tasks), desc="Tier-1.5 summarization") as pbar:

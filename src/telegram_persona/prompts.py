@@ -343,8 +343,8 @@ Respond with this JSON structure:
     }}
   }},
   "vocabulary": {{
-    "high_freq_words": ["frequently used words/phrases"],
-    "signature_phrases": ["distinctive expressions unique to this person"],
+    "high_freq_words": ["frequently used words/phrases — single tokens or very short fixed expressions that appear across many conversations"],
+    "signature_phrases": ["representative examples that capture this person's TONE, REGISTER, and SENTENCE STRUCTURE — not catchphrases to repeat, but calibration samples. Pick examples that show how they construct sentences, not what they said about a specific topic. Prefer structural variety: include a terse diagnostic, a slangy reaction, a self-deprecating joke, a technical shorthand, etc. Max 10."],
     "avoided_patterns": ["things this person never or rarely does/says"]
   }}
 }}"""
@@ -377,6 +377,13 @@ Extract rules in three categories:
 3. **fallback_rules**: What to do when uncertain
 
 Each rule must include confidence, evidence count, example quotes, and context applicability.
+Additionally, for each rule, include machine-readable fields that enable automated filtering and selection:
+- prompt_text: a concise, distilled version of the rule suitable for direct injection into an LLM prompt
+- chat_types: which broad chat categories this applies to (from: "private", "group", "channel")
+- relationship_types: which relationship types this applies to (from: "all", "close_friend", "friend", "acquaintance", "colleague", "family", "mentor", "mentee", "community_peer")
+- topic_tags: topics that trigger this rule (empty array if always applicable)
+- trigger_tags: message-level triggers (from: "any_message", "question", "technical_question", "help_request", "greeting", "humor", "disagreement", "success", "failure", "media_share", "link_share")
+- effect: the observable effect on output (from: "short_reply", "multi_burst", "diagnosis_first", "minimal_punctuation", "heavy_emoji", "no_emoji", "code_snippet", "link_share", "sticker_only", "language_switch", "formality_increase", "formality_decrease")
 
 Respond with this JSON structure:
 {{
@@ -384,13 +391,19 @@ Respond with this JSON structure:
     {{
       "id": "rule_NNN",
       "rule": "specific, actionable instruction (e.g. 'Send messages under 30 characters in casual contexts')",
+      "prompt_text": "concise version for LLM prompt injection",
       "type": "sentence_structure|tone|language_choice|punctuation|emoji|topic_engagement|formality|multi_message|code_style|meme_usage",
       "confidence": 0.0-1.0,
       "evidence_count": N,
       "example_quotes": ["exact quotes from data, max 3"],
       "applies_in": ["private_casual", "group_casual", etc.],
       "not_applies_in": ["contexts where this rule does NOT apply"],
-      "priority": "high|medium|low"
+      "priority": "high|medium|low",
+      "chat_types": ["private", "group"],
+      "relationship_types": ["all"],
+      "topic_tags": [],
+      "trigger_tags": ["any_message"],
+      "effect": ["short_reply"]
     }}
   ],
   "boundaries": [
@@ -447,10 +460,14 @@ Respond with this JSON structure:
   "domains": [
     {{
       "name": "domain name",
+      "domain_id": "short_snake_case_identifier (e.g. networking, proxy_tools, rust_programming)",
       "type": "expertise|discussion|avoided",
       "expertise_level": "expert|advanced|intermediate|beginner|null",
       "sub_topics": ["specific sub-areas"],
+      "topic_tags": ["machine-readable tags for matching, e.g. bgp, wireguard, dns, proxy"],
       "expression_style": "advising|explaining|complaining|sharing|forwarding|debating|joking|null",
+      "reply_likelihood": "high|medium|low|none",
+      "preferred_response_mode": "short_diagnostic|detailed_explanation|link_share|code_snippet|opinion|redirect|null",
       "confidence": 0.0-1.0,
       "evidence_count": N,
       "key_knowledge": ["concrete pieces of demonstrated knowledge"],
@@ -480,18 +497,41 @@ TIER2_RESPONSE_POLICIES_USER = """Based on the following data from "{user_name}"
 
 ---
 
-Model two things:
-1. **triggers**: How this person reacts to different conversational situations
-2. **boundaries**: What this person will NOT do in specific contexts
+Model three things:
+1. **decision_policies**: Rules for WHETHER to reply — each policy maps a situation to a reply decision
+2. **generation_policies**: Rules for HOW to reply — each policy describes the response shape and style
+3. **boundaries**: What this person will NOT do in specific contexts
+
+Each policy must include machine-readable fields for automated rule evaluation, in addition to natural language descriptions.
 
 Respond with this JSON structure:
 {{
-  "triggers": [
+  "decision_policies": [
     {{
-      "condition": "specific situation (e.g. 'someone asks a technical question in their expertise area')",
-      "response_style": "how they respond (e.g. 'detailed explanation with code examples, patient tone')",
+      "id": "dp_NNN",
+      "condition": "specific situation (natural language)",
+      "decision": "reply|skip|uncertain|defer",
+      "decision_confidence": 0.0-1.0,
+      "applies_to_chat_types": ["private", "group", "channel"],
+      "requires_direct_address": false,
+      "requires_mention": false,
+      "match_tags": ["tags describing what to match in the incoming message, e.g. technical, question, greeting, humor, complaint"],
+      "topic_tags": ["specific topic areas that trigger this policy"],
+      "relationship_tags": ["all" or specific relationship types],
+      "confidence": 0.0-1.0,
+      "evidence_count": N
+    }}
+  ],
+  "generation_policies": [
+    {{
+      "id": "gp_NNN",
+      "condition": "specific situation (natural language)",
+      "response_style": "how they respond (natural language description)",
+      "response_shape": "short_diagnostic|detailed_explanation|multi_message|link_share|sticker_only|acknowledgment|question",
       "tone": "specific tone used",
-      "message_structure": "short_reply|detailed_paragraph|multi_message|link_share",
+      "reply_bias": "prefer_reply|neutral|prefer_skip",
+      "max_response_length_hint": "very_short|short|medium|long",
+      "burst_preference": "single|multi_burst",
       "confidence": 0.0-1.0,
       "evidence_count": N,
       "example_quotes": ["actual examples from data"]
@@ -499,8 +539,12 @@ Respond with this JSON structure:
   ],
   "boundaries": [
     {{
-      "situation": "context where boundary applies (e.g. 'unfamiliar people', 'formal channels')",
-      "constraint": "what they won't do (e.g. 'won't use profanity', 'won't share personal opinions on politics')",
+      "id": "bd_NNN",
+      "situation": "context where boundary applies",
+      "constraint": "what they won't do",
+      "applies_to_chat_types": ["private", "group"],
+      "topic_tags": [],
+      "relationship_tags": ["all"],
       "confidence": 0.0-1.0,
       "evidence_count": N,
       "exceptions": "any known exceptions to this boundary"
@@ -508,7 +552,8 @@ Respond with this JSON structure:
   ]
 }}
 
-IMPORTANT: Generate at least 8 triggers and 5 boundaries. Be specific — "responds helpfully" is too vague; "gives step-by-step instructions with terminal commands" is good."""
+IMPORTANT: Generate at least 8 decision_policies, 8 generation_policies, and 5 boundaries. Be specific -- "responds helpfully" is too vague; "gives step-by-step instructions with terminal commands" is good.
+The decision_policies and generation_policies can reference the same situations -- decision_policies answer "should I reply?" while generation_policies answer "how should I reply?"."""
 
 
 # ============================================================
@@ -599,6 +644,10 @@ Respond with this JSON structure:
   "tone_in_group": "description of their typical tone here",
   "typical_topics": ["what they usually talk about in this group"],
   "notable_relationships": ["names of people they interact with most, with brief description"],
+  "engagement_bias": "avoid|reactive|normal|proactive",
+  "reply_triggers": ["specific situations or topics that make them likely to reply in this group"],
+  "reply_avoidances": ["topics or situations they tend to stay out of"],
+  "topic_hotspots": ["their strongest/most-active topics in this group"],
   "summary": "2-3 sentence description of their presence in this group"
 }}"""
 
@@ -626,32 +675,47 @@ IMPORTANT: Memes are ephemeral — specific phrases go viral and die within days
 
 Respond with this JSON structure:
 {{
+  "reaction_tokens": [
+    {{
+      "phrase": "frequently used expression (e.g. 草, ?, 6)",
+      "meaning": "what it conveys",
+      "social_function": "humor|deflection|bonding|complaint|celebration|sarcasm|self_deprecation|surprise|agreement",
+      "frequency": "high|medium|low",
+      "contexts": ["situations where this is used, e.g. humor, surprise, technical_win, casual_chat"],
+      "stakes": "low|medium|high",
+      "topic_tags": ["related topics, or empty if general"],
+      "example_outputs": ["1-3 actual examples showing how it appears in messages"],
+      "anti_contexts": ["situations where this should NOT be used, e.g. serious_troubleshooting, formal"]
+    }}
+  ],
+  "constructive_templates": [
+    {{
+      "pattern_name": "descriptive name",
+      "structure": "abstract template or grammatical pattern",
+      "when_to_use": "conversational moment that fits",
+      "contexts": ["situations where this pattern works"],
+      "stakes": "low|medium|high",
+      "examples_from_data": ["2-3 actual examples"],
+      "anti_contexts": ["situations where this pattern should NOT be used"]
+    }}
+  ],
+  "avoidance_rules": [
+    {{
+      "situation": "when to suppress meme/slang usage",
+      "constraint": "what to avoid",
+      "stakes": "high"
+    }}
+  ],
   "meme_timing": {{
     "triggers": ["situations/emotions that trigger meme usage"],
     "anti_triggers": ["situations where they stay serious"],
     "placement": "where memes appear in message flow"
   }},
-  "meme_grammar": [
-    {{
-      "pattern_name": "descriptive name",
-      "structure": "abstract template or grammatical pattern",
-      "when_to_use": "conversational moment that fits",
-      "examples_from_data": ["2-3 actual examples"]
-    }}
-  ],
   "meme_adoption_style": {{
     "how_they_learn": "how they pick up new expressions",
     "transformation_tendency": "verbatim vs. modified vs. original variations",
     "source_sensitivity": "who they adopt memes from"
   }},
-  "known_meme_vocabulary": [
-    {{
-      "phrase": "frequently used expression",
-      "meaning": "what it conveys",
-      "social_function": "humor|deflection|bonding|complaint|celebration|sarcasm|self_deprecation",
-      "frequency": "high|medium|low"
-    }}
-  ],
   "meme_style_summary": "2-3 paragraph description of meme personality and agent guidance"
 }}"""
 

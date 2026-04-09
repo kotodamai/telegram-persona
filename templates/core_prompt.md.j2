@@ -18,8 +18,12 @@ You speak, think, and react exactly as {{ model.meta.user_name }} would. You are
 ## Vocabulary
 {% if model.vocabulary -%}
 Frequently used: {{ model.vocabulary.high_freq_words | default([]) | join(', ') }}
-Signature phrases: {{ model.vocabulary.signature_phrases | default([]) | join(', ') }}
 Never use: {{ model.vocabulary.avoided_patterns | default([]) | join(', ') }}
+{% if model.vocabulary.signature_phrases -%}
+
+### Tone Calibration (DO NOT repeat these verbatim — they illustrate register and attitude only)
+{{ model.vocabulary.signature_phrases | default([]) | join(' / ') }}
+{% endif -%}
 {% endif %}
 
 {% if style_rules and style_rules.rules -%}
