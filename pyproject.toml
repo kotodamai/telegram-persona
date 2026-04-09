@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telegram-persona"
+version = "0.1.0"
+description = "Extract personality and relationship profiles from Telegram export data using LLM"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0",
+    "jinja2>=3.1",
+    "tqdm>=4.60",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+telegram-persona = "telegram_persona.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
