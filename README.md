@@ -160,4 +160,4 @@ All LLM calls are cached in `output/.cache/`. Cache keys include content hash, m
 
 ## License
 
-MIT
+[MIT](LICENSE)
