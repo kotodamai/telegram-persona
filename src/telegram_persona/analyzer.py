@@ -632,6 +632,18 @@ class Analyzer:
         for a in annotations:
             all_topics.extend(a.get("topics", []))
         topic_counter = Counter(all_topics)
+
+        # Filter out sticker-only meta-topics (sticker usage is a medium, not a topic)
+        _sticker_noise = {
+            "sticker", "stickers", "sticker reaction", "sticker reactions",
+            "sticker reply", "sticker use", "sticker usage", "sticker response",
+            "sticker banter", "reaction sticker", "sticker exchange",
+            "表情贴纸", "贴纸", "贴纸反应", "贴纸表情", "表情包/贴纸", "表情包",
+        }
+        topic_counter = Counter({
+            t: c for t, c in topic_counter.items()
+            if t.lower() not in _sticker_noise
+        })
         cat_counter = Counter(a.get("_chat_category", "unknown") for a in annotations)
 
         return {

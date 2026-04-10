@@ -307,6 +307,49 @@ def _detect_language_simple(text: str) -> str:
     return "en"
 
 
+def _extract_emojis(text: str) -> list[str]:
+    """Extract emoji characters from text using Unicode code point ranges."""
+    emojis = []
+    i = 0
+    while i < len(text):
+        cp = ord(text[i])
+        # Check for common emoji ranges
+        is_emoji = (
+            0x1F600 <= cp <= 0x1F64F  # Emoticons
+            or 0x1F300 <= cp <= 0x1F5FF  # Misc Symbols & Pictographs
+            or 0x1F680 <= cp <= 0x1F6FF  # Transport & Map
+            or 0x1F700 <= cp <= 0x1F77F  # Alchemical Symbols
+            or 0x1F780 <= cp <= 0x1F7FF  # Geometric Shapes Extended
+            or 0x1F800 <= cp <= 0x1F8FF  # Supplemental Arrows-C
+            or 0x1F900 <= cp <= 0x1F9FF  # Supplemental Symbols & Pictographs
+            or 0x1FA00 <= cp <= 0x1FA6F  # Chess Symbols
+            or 0x1FA70 <= cp <= 0x1FAFF  # Symbols & Pictographs Extended-A
+            or 0x2600 <= cp <= 0x26FF    # Misc Symbols
+            or 0x2700 <= cp <= 0x27BF    # Dingbats
+            or 0x231A <= cp <= 0x231B    # Watch, Hourglass
+            or 0x23E9 <= cp <= 0x23F3    # Media controls
+            or 0x23F8 <= cp <= 0x23FA    # Media controls
+            or 0x25AA <= cp <= 0x25AB    # Squares
+            or 0x25B6 == cp or 0x25C0 == cp
+            or 0x25FB <= cp <= 0x25FE    # Squares
+            or 0x2614 <= cp <= 0x2615    # Umbrella, Hot Beverage
+            or 0x2648 <= cp <= 0x2653    # Zodiac
+            or 0x267F == cp or 0x2693 == cp
+            or 0x2934 <= cp <= 0x2935    # Arrows
+            or 0x2B05 <= cp <= 0x2B07    # Arrows
+            or 0x2B1B <= cp <= 0x2B1C    # Squares
+            or 0x2B50 == cp or 0x2B55 == cp
+            or 0x3030 == cp or 0x303D == cp
+            or 0x3297 == cp or 0x3299 == cp
+            or 0xFE0F == cp  # Variation Selector-16 (skip)
+            or 0x200D == cp  # Zero Width Joiner (skip)
+        )
+        if is_emoji and cp not in (0xFE0F, 0x200D):
+            emojis.append(text[i])
+        i += 1
+    return emojis
+
+
 def _compute_burst_lengths(chat_msgs: list[Message], user_id: str) -> list[int]:
     """Compute consecutive message burst lengths for user within a chat."""
     bursts = []
@@ -390,6 +433,17 @@ def compute_behavioral_stats(export: ExportData) -> dict[str, Any]:
     photo_count = sum(1 for m in my_msgs if m.media_type == "photo")
     video_count = sum(1 for m in my_msgs if m.media_type in ("video_file", "video_message"))
 
+    # Emoji stats — count actual emoji characters in text (not stickers)
+    emoji_counter: Counter[str] = Counter()
+    emoji_msg_count = 0
+    for m in my_msgs:
+        if not m.is_text or m.is_sticker:
+            continue
+        emojis = _extract_emojis(m.text)
+        if emojis:
+            emoji_msg_count += 1
+            emoji_counter.update(emojis)
+
     # Message length stats — global and per category
     text_msgs = [m for m in my_msgs if m.is_text and not m.is_sticker]
     lengths = [len(m.text) for m in text_msgs] if text_msgs else [0]
@@ -461,6 +515,9 @@ def compute_behavioral_stats(export: ExportData) -> dict[str, Any]:
         "reply_targets": reply_target_names,
         "reaction_received": dict(reaction_received.most_common(20)),
         "sticker_rate": round(sticker_count / total, 3) if total else 0,
+        "emoji_rate": round(emoji_msg_count / len(text_msgs), 3) if text_msgs else 0,
+        "emoji_count": sum(emoji_counter.values()),
+        "top_emojis": dict(emoji_counter.most_common(10)),
         "edit_rate": round(edit_count / total, 3) if total else 0,
         "forward_rate": round(forward_count / total, 3) if total else 0,
         "link_rate": round(link_count / total, 3) if total else 0,

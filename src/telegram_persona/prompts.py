@@ -20,13 +20,15 @@ This is a 1-on-1 conversation. Pay close attention to:
 - What [Self] chooses NOT to do (avoids certain topics, refuses to engage, ignores questions)
 - How [Self] reacts to different types of input (questions, jokes, complaints, requests)
 
+NOTE: Messages shown as [sticker:emoji] are STICKER messages (the user sent a sticker pack image), NOT typed emoji. Do not count stickers as emoji usage. Sticker patterns belong in sticker_context only, not in style_markers or topics.
+
 Extract the following as JSON:
 {{
   "language": "zh|en|mixed",
   "tone": "neutral|playful|serious|frustrated|enthusiastic|sarcastic|warm|cold",
   "formality": 1-5,
-  "topics": ["brief topic keywords"],
-  "style_markers": ["notable language patterns: sentence length, punctuation, internet slang, strikethrough humor, etc."],
+  "topics": ["brief topic keywords — do NOT include 'sticker' as a topic; sticker usage is a medium, not a topic"],
+  "style_markers": ["notable language patterns: sentence length, punctuation, internet slang, strikethrough humor, etc. — do NOT list sticker usage here"],
   "relationship_signals": {{
     "closeness": "intimate|close|familiar|neutral|distant",
     "dynamic": "equal|self_leads|other_leads|self_helps|other_helps",
@@ -87,13 +89,15 @@ This is a multi-person group chat. Each participant has a uid like [uid:user123]
 - What [Self] chooses NOT to engage with (ignores certain people, avoids certain topics)
 - How [Self]'s behavior changes in response to different triggers
 
+NOTE: Messages shown as [sticker:emoji] are STICKER messages (the user sent a sticker pack image), NOT typed emoji. Do not count stickers as emoji usage. Sticker patterns belong in sticker_context only, not in style_markers or topics.
+
 Extract the following as JSON:
 {{
   "language": "zh|en|mixed",
   "tone": "neutral|playful|serious|frustrated|enthusiastic|sarcastic|warm|cold",
   "formality": 1-5,
-  "topics": ["brief topic keywords"],
-  "style_markers": ["notable language patterns"],
+  "topics": ["brief topic keywords — do NOT include 'sticker' as a topic; sticker usage is a medium, not a topic"],
+  "style_markers": ["notable language patterns — do NOT list sticker usage here"],
   "group_role": "active_contributor|helper|entertainer|lurker|leader|debater",
   "notable_phrases": ["exact quotes of distinctive expressions from [Self], max 5"],
   "sticker_context": "description of when/why [Self] uses stickers, or null",
@@ -150,6 +154,8 @@ IMPORTANT: Always include person_uid from the message annotations (e.g. user7658
 
 
 TIER1_CHANNEL = """Analyze the following CHANNEL post(s) by [Self]. This is content published to a channel/audience.
+
+NOTE: Messages shown as [sticker:emoji] are STICKER messages, NOT typed emoji. Do not conflate sticker usage with emoji usage.
 
 Extract the following as JSON:
 {{
@@ -208,6 +214,7 @@ Preserve:
 - Aggregated tone/formality patterns (note if they vary)
 - All negative_markers (merge into recurring patterns)
 - All conditional_reactions (merge similar triggers, note frequency)
+- Keep sticker patterns and emoji patterns SEPARATE — sticker usage (sending sticker images) is distinct from emoji usage (emoji characters typed in text). Do not merge them.
 
 ## Annotations
 {annotations_text}
@@ -286,6 +293,8 @@ Data sources: {chat_count} different chats ({private_count} private, {group_coun
 
 IMPORTANT: The behavioral statistics are precise and should be weighted heavily. Note how behavior DIFFERS across contexts (private vs. group, with different people).
 
+IMPORTANT: The behavioral_stats include separate sticker_rate and emoji_rate fields. sticker_rate measures how often the user sends sticker images (a visual medium). emoji_rate measures how often the user types emoji characters in text messages. These are DIFFERENT behaviors — do not conflate them. The [sticker:emoji] markers in chat summaries represent sticker images, not typed emoji.
+
 Respond with this JSON structure:
 {{
   "big_five": {{
@@ -301,7 +310,7 @@ Respond with this JSON structure:
     "punctuation_habits": ["specific patterns: e.g. rarely uses periods, heavy ellipsis, no exclamation marks"],
     "paragraph_style": "single_line_per_thought|multi_sentence_blocks|mixed",
     "rhythm": "fast_short_bursts|measured_paragraphs|variable",
-    "emoji_usage": "frequent|moderate|rare|never",
+    "emoji_usage": "frequent|moderate|rare|never — based on emoji_rate in behavioral_stats (emoji typed in text only, NOT sticker messages)",
     "formality_baseline": 1-5,
     "language_preference": "description of primary language and when they switch"
   }},
@@ -432,7 +441,8 @@ IMPORTANT:
 - Generate at least 15 rules, 5 boundaries, and 3 fallback rules
 - Rules must be SPECIFIC and TESTABLE, not vague (bad: "be friendly"; good: "use 哈哈 or emoji when agreeing with friends")
 - Confidence should reflect how consistently this pattern appears in the data
-- Every rule must reference at least one example quote from the actual data"""
+- Every rule must reference at least one example quote from the actual data
+- Distinguish sticker behavior from emoji behavior: sending a sticker image is NOT the same as typing emoji in text. Create separate rules for each if both are present."""
 
 
 # ============================================================
@@ -454,6 +464,8 @@ TIER2_TOPIC_GRAPH_USER = """Based on the following knowledge and topic data from
 ---
 
 Classify each topic as: expertise (they teach/advise), discussion (they engage but don't teach), or avoided (they deflect or stay silent).
+
+NOTE: "sticker", "sticker reaction", "sticker use", "表情贴纸", etc. are NOT topics — they are a communication MEDIUM (like punctuation or voice messages). Do not create domain entries for sticker usage itself. Only include topics that reflect actual subject matter discussed.
 
 Respond with this JSON structure:
 {{
